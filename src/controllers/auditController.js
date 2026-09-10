@@ -2,6 +2,8 @@ const prisma = require('../db/prisma');
 const {
   getAuditLogs,
   getAuditStats,
+  getAuditLogById: findAuditLogById,
+  getAuditLogsByRequestId: findAuditLogsByRequestId,
 } = require('../services/auditService');
 
 const listAuditLogs = async (req, res, next) => {
@@ -38,6 +40,42 @@ const auditStats = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+const getAuditLogById = async (req, res, next) => {
+  try {
+    const log = await findAuditLogById(prisma, req.params.id);
+
+    if (!log) {
+      return res.status(404).json({
+        success: false,
+        message: 'Audit log not found',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: log,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getAuditLogsByRequestId = async (req, res, next) => {
+  try {
+    const logs = await findAuditLogsByRequestId(
+      prisma,
+      req.params.requestId
+    );
+
+    return res.json({
+      success: true,
+      data: logs,
+    });
+  } catch (error) {
+    return next(error);
   }
 };
 
@@ -96,4 +134,6 @@ module.exports = {
   listAuditLogs,
   auditStats,
   exportAuditLogs,
+  getAuditLogById,
+  getAuditLogsByRequestId
 };

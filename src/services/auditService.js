@@ -196,7 +196,7 @@ const recordAuditLog = async (prismaClient, auditData = {}) => {
     }
 
     const auditLog = await prismaClient.auditlog.create({ data: logData });
-    console.info(`[AUDIT_SERVICE] Audit recorded successfully: ${logData.entitytype} | ${logData.entityid} | ${logData.action}`);
+    console.info(`[AUDIT_SERVICE] Audit recorded successfully: ${logData.entityname} | ${logData.entityid} | ${logData.action}`);
     return {
       ...auditLog,
       auditlogid: auditLog.auditid,
@@ -333,8 +333,7 @@ const getAuditLogsByRequestId = async (prismaClient, requestid) => {
 const getAuditLogs = async (prismaClient, page = 1, pageSize = 10, filters = {}) => {
   const safePage = Math.max(Number(page) || 1, 1);
   const safePageSize = Math.min(Math.max(Number(pageSize) || 10, 1), 10000);
-
-   const where = {};
+  const where = {};
   const { entityname, action, search, startDate, endDate } = filters;
 
   if (entityname) {
@@ -352,16 +351,11 @@ const getAuditLogs = async (prismaClient, page = 1, pageSize = 10, filters = {})
     where.action = action.toUpperCase();
   }
 
-  const searchConditions = [];
    if (search) {
-    searchConditions.push(
+    where.AND = [{ OR: [
       { entityid: { contains: search, mode: 'insensitive' } },
       { customerid: { contains: search, mode: 'insensitive' } }
-    );
-  }
-
-  if (searchConditions.length) {
-    where.AND = [{ OR: searchConditions }];
+    ] }];
   }
 
   if (startDate || endDate) {
@@ -378,26 +372,6 @@ const getAuditLogs = async (prismaClient, page = 1, pageSize = 10, filters = {})
   }
 
   const skip = (safePage - 1) * safePageSize;
-
-  const where = {};
-  if (options.requestId) {
-    where.OR = [
-      { requestid: String(options.requestId) },
-      {
-        metadata: {
-          path: ['requestid'],
-          equals: String(options.requestId),
-        },
-      },
-    ];
-  }
-  if (options.entityType || options.entityname) {
-    const entity = options.entityType || options.entityname;
-    where.OR = [
-      { entitytype: String(entity).toUpperCase() },
-      { entityname: String(entity).toUpperCase() },
-    ];
-  }
 
   const [data, total] = await Promise.all([
     prismaClient.auditlog.findMany({
@@ -429,6 +403,16 @@ const getAuditLogs = async (prismaClient, page = 1, pageSize = 10, filters = {})
       totalPages: Math.ceil(total / safePageSize),
     },
   };
+};
+
+const getAuditLogById = async (prismaClient, auditId) => {
+  const client = prismaClient?.auditlog
+    ? prismaClient
+    : require('../utils/db');
+
+  return client.auditlog.findUnique({
+    where: { auditid: String(auditId) },
+  });
 };
 
 const getAuditStats = async (prismaClient) => {
